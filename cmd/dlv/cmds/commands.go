@@ -110,7 +110,7 @@ func New(docCall bool) *cobra.Command {
 	RootCommand.PersistentFlags().StringVar(&InitFile, "init", "", "Init file, executed by the terminal client.")
 	RootCommand.PersistentFlags().StringVar(&BuildFlags, "build-flags", buildFlagsDefault, "Build flags, to be passed to the compiler.")
 	RootCommand.PersistentFlags().StringVar(&WorkingDir, "wd", ".", "Working directory for running the program.")
-	RootCommand.PersistentFlags().BoolVarP(&CheckGoVersion, "check-go-version", "", true, "Checks that the version of Go in use is compatible with Delve.")
+	RootCommand.PersistentFlags().BoolVarP(&CheckGoVersion, "check-go-version", "", false, "Checks that the version of Go in use is compatible with Delve.")
 	RootCommand.PersistentFlags().StringVar(&Backend, "backend", "default", `Backend selection (see 'dlv help backend').`)
 
 	// 'attach' subcommand.
