@@ -1,4 +1,4 @@
-module github.com/go-delve/delve
+module github.com/lupes/delve
 
 go 1.10
 
