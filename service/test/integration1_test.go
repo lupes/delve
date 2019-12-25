@@ -724,6 +724,9 @@ func Test1ClientServer_SetVariable(t *testing.T) {
 }
 
 func Test1ClientServer_FullStacktrace(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("arm64 does not support Stacktrace for now")
+	}
 	withTestClient1("goroutinestackprog", t, func(c *rpc1.RPCClient) {
 		_, err := c.CreateBreakpoint(&api.Breakpoint{FunctionName: "main.stacktraceme", Line: -1})
 		assertNoError(err, t, "CreateBreakpoint()")
@@ -796,6 +799,9 @@ func Test1ClientServer_FullStacktrace(t *testing.T) {
 }
 
 func Test1Issue355(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("arm64 does not support Stacktrace for now")
+	}
 	// After the target process has terminated should return an error but not crash
 	withTestClient1("continuetestprog", t, func(c *rpc1.RPCClient) {
 		bp, err := c.CreateBreakpoint(&api.Breakpoint{FunctionName: "main.sayhi", Line: -1})
@@ -897,7 +903,7 @@ func Test1Disasm(t *testing.T) {
 		// look for static call to afunction() on line 29
 		found := false
 		for i := range d3 {
-			if d3[i].Loc.Line == 29 && strings.HasPrefix(d3[i].Text, "call") && d3[i].DestLoc != nil && d3[i].DestLoc.Function != nil && d3[i].DestLoc.Function.Name() == "main.afunction" {
+			if d3[i].Loc.Line == 29 && (strings.HasPrefix(d3[i].Text, "call") || strings.HasPrefix(d3[i].Text, "CALL")) && d3[i].DestLoc != nil && d3[i].DestLoc.Function != nil && d3[i].DestLoc.Function.Name() == "main.afunction" {
 				found = true
 				break
 			}
@@ -942,7 +948,7 @@ func Test1Disasm(t *testing.T) {
 				t.Fatal("Calling StepInstruction() repeatedly did not find the call instruction")
 			}
 
-			if strings.HasPrefix(curinstr.Text, "call") {
+			if strings.HasPrefix(curinstr.Text, "call") || strings.HasPrefix(curinstr.Text, "CALL") {
 				t.Logf("call: %v", curinstr)
 				if curinstr.DestLoc == nil || curinstr.DestLoc.Function == nil {
 					t.Fatalf("Call instruction does not have destination: %v", curinstr)

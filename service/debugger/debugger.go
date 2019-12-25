@@ -237,6 +237,9 @@ const deferReturn = "runtime.deferreturn"
 // for the given function, a list of addresses corresponding
 // to 'ret' or 'call runtime.deferreturn'.
 func (d *Debugger) FunctionReturnLocations(fnName string) ([]uint64, error) {
+	d.processMutex.Lock()
+	defer d.processMutex.Unlock()
+
 	var (
 		p = d.target
 		g = p.SelectedGoroutine()
@@ -249,7 +252,7 @@ func (d *Debugger) FunctionReturnLocations(fnName string) ([]uint64, error) {
 
 	var regs proc.Registers
 	var mem proc.MemoryReadWriter = p.CurrentThread()
-	if g.Thread != nil {
+	if g != nil && g.Thread != nil {
 		mem = g.Thread
 		regs, _ = g.Thread.Registers(false)
 	}
@@ -446,6 +449,8 @@ func (d *Debugger) CreateBreakpoint(requestedBp *api.Breakpoint) (*api.Breakpoin
 		addrs, err = proc.FindFileLocation(d.target, fileName, requestedBp.Line)
 	case len(requestedBp.FunctionName) > 0:
 		addrs, err = proc.FindFunctionLocation(d.target, requestedBp.FunctionName, requestedBp.Line)
+	case len(requestedBp.Addrs) > 0:
+		addrs = requestedBp.Addrs
 	default:
 		addrs = []uint64{requestedBp.Addr}
 	}

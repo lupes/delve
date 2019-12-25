@@ -24,6 +24,7 @@ import (
 	"github.com/go-delve/delve/pkg/dwarf/frame"
 	"github.com/go-delve/delve/pkg/dwarf/godwarf"
 	"github.com/go-delve/delve/pkg/dwarf/line"
+	"github.com/go-delve/delve/pkg/dwarf/loclist"
 	"github.com/go-delve/delve/pkg/dwarf/op"
 	"github.com/go-delve/delve/pkg/dwarf/reader"
 	"github.com/go-delve/delve/pkg/goversion"
@@ -60,8 +61,16 @@ type BinaryInfo struct {
 	closer         io.Closer
 	sepDebugCloser io.Closer
 
-	// Maps package names to package paths, needed to lookup types inside DWARF info
-	packageMap map[string]string
+	// PackageMap maps package names to package paths, needed to lookup types inside DWARF info.
+	// On Go1.12 this mapping is determined by using the last element of a package path, for example:
+	//   github.com/go-delve/delve
+	// will map to 'delve' because it ends in '/delve'.
+	// Starting with Go1.13 debug_info will contain a special attribute
+	// (godwarf.AttrGoPackageName) containing the canonical package name for
+	// each package.
+	// If multiple packages have the same name the map entry will have more
+	// than one item in the slice.
+	PackageMap map[string][]string
 
 	frameEntries frame.FrameDescriptionEntries
 
@@ -89,7 +98,7 @@ type BinaryInfo struct {
 }
 
 // ErrUnsupportedLinuxArch is returned when attempting to debug a binary compiled for an unsupported architecture.
-var ErrUnsupportedLinuxArch = errors.New("unsupported architecture - only linux/amd64 is supported")
+var ErrUnsupportedLinuxArch = errors.New("unsupported architecture - only linux/amd64 and linux/arm64 are supported")
 
 // ErrUnsupportedWindowsArch is returned when attempting to debug a binary compiled for an unsupported architecture.
 var ErrUnsupportedWindowsArch = errors.New("unsupported architecture of windows/386 - only windows/amd64 is supported")
@@ -233,70 +242,6 @@ type packageVar struct {
 	addr   uint64
 }
 
-type loclistReader struct {
-	data  []byte
-	cur   int
-	ptrSz int
-}
-
-func (rdr *loclistReader) Seek(off int) {
-	rdr.cur = off
-}
-
-func (rdr *loclistReader) read(sz int) []byte {
-	r := rdr.data[rdr.cur : rdr.cur+sz]
-	rdr.cur += sz
-	return r
-}
-
-func (rdr *loclistReader) oneAddr() uint64 {
-	switch rdr.ptrSz {
-	case 4:
-		addr := binary.LittleEndian.Uint32(rdr.read(rdr.ptrSz))
-		if addr == ^uint32(0) {
-			return ^uint64(0)
-		}
-		return uint64(addr)
-	case 8:
-		addr := uint64(binary.LittleEndian.Uint64(rdr.read(rdr.ptrSz)))
-		return addr
-	default:
-		panic("bad address size")
-	}
-}
-
-func (rdr *loclistReader) Next(e *loclistEntry) bool {
-	e.lowpc = rdr.oneAddr()
-	e.highpc = rdr.oneAddr()
-
-	if e.lowpc == 0 && e.highpc == 0 {
-		return false
-	}
-
-	if e.BaseAddressSelection() {
-		e.instr = nil
-		return true
-	}
-
-	instrlen := binary.LittleEndian.Uint16(rdr.read(2))
-	e.instr = rdr.read(int(instrlen))
-	return true
-}
-
-type loclistEntry struct {
-	lowpc, highpc uint64
-	instr         []byte
-}
-
-type runtimeTypeDIE struct {
-	offset dwarf.Offset
-	kind   int64
-}
-
-func (e *loclistEntry) BaseAddressSelection() bool {
-	return e.lowpc == ^uint64(0)
-}
-
 type buildIDHeader struct {
 	Namesz uint32
 	Descsz uint32
@@ -317,6 +262,8 @@ func NewBinaryInfo(goos, goarch string) *BinaryInfo {
 	switch goarch {
 	case "amd64":
 		r.Arch = AMD64Arch(goos)
+	case "arm64":
+		r.Arch = ARM64Arch(goos)
 	}
 
 	return r
@@ -529,7 +476,7 @@ type Image struct {
 
 	dwarf       *dwarf.Data
 	dwarfReader *dwarf.Reader
-	loclist     loclistReader
+	loclist     *loclist.Reader
 
 	typeCache map[dwarf.Offset]godwarf.Type
 
@@ -670,16 +617,11 @@ func (bi *BinaryInfo) LoadImageFromData(dwdata *dwarf.Data, debugFrameBytes, deb
 		bi.frameEntries = frame.Parse(debugFrameBytes, frame.DwarfEndian(debugFrameBytes), 0)
 	}
 
-	image.loclistInit(debugLocBytes, bi.Arch.PtrSize())
+	image.loclist = loclist.New(debugLocBytes, bi.Arch.PtrSize())
 
 	bi.loadDebugInfoMaps(image, debugLineBytes, nil, nil)
 
 	bi.Images = append(bi.Images, image)
-}
-
-func (image *Image) loclistInit(data []byte, ptrSz int) {
-	image.loclist.data = data
-	image.loclist.ptrSz = ptrSz
 }
 
 func (bi *BinaryInfo) locationExpr(entry reader.Entry, attr dwarf.Attr, pc uint64) ([]byte, string, error) {
@@ -729,19 +671,19 @@ func (bi *BinaryInfo) LocationCovers(entry *dwarf.Entry, attr dwarf.Attr) ([][2]
 
 	image := cu.image
 	base := cu.lowPC
-	if image == nil || image.loclist.data == nil {
+	if image == nil || image.loclist.Empty() {
 		return nil, errors.New("malformed executable")
 	}
 
 	r := [][2]uint64{}
+	var e loclist.Entry
 	image.loclist.Seek(int(off))
-	var e loclistEntry
 	for image.loclist.Next(&e) {
 		if e.BaseAddressSelection() {
-			base = e.highpc
+			base = e.HighPC
 			continue
 		}
-		r = append(r, [2]uint64{e.lowpc + base, e.highpc + base})
+		r = append(r, [2]uint64{e.LowPC + base, e.HighPC + base})
 	}
 	return r, nil
 }
@@ -768,19 +710,19 @@ func (bi *BinaryInfo) loclistEntry(off int64, pc uint64) []byte {
 		base = cu.lowPC
 		image = cu.image
 	}
-	if image == nil || image.loclist.data == nil {
+	if image == nil || image.loclist.Empty() {
 		return nil
 	}
 
 	image.loclist.Seek(int(off))
-	var e loclistEntry
+	var e loclist.Entry
 	for image.loclist.Next(&e) {
 		if e.BaseAddressSelection() {
-			base = e.highpc
+			base = e.HighPC
 			continue
 		}
-		if pc >= e.lowpc+base && pc < e.highpc+base {
-			return e.instr
+		if pc >= e.LowPC+base && pc < e.HighPC+base {
+			return e.Instr
 		}
 	}
 
@@ -885,7 +827,7 @@ func (bi *BinaryInfo) openSeparateDebugInfo(image *Image, exe *elf.File, debugIn
 		return nil, nil, fmt.Errorf("can't open separate debug file %q: %v", debugFilePath, err.Error())
 	}
 
-	if elfFile.Machine != elf.EM_X86_64 {
+	if elfFile.Machine != elf.EM_X86_64 && elfFile.Machine != elf.EM_AARCH64 {
 		sepFile.Close()
 		return nil, nil, fmt.Errorf("can't open separate debug file %q: %v", debugFilePath, ErrUnsupportedLinuxArch.Error())
 	}
@@ -933,7 +875,7 @@ func loadBinaryInfoElf(bi *BinaryInfo, image *Image, path string, addr uint64, w
 	if err != nil {
 		return err
 	}
-	if elfFile.Machine != elf.EM_X86_64 {
+	if elfFile.Machine != elf.EM_X86_64 && elfFile.Machine != elf.EM_AARCH64 {
 		return ErrUnsupportedLinuxArch
 	}
 
@@ -980,7 +922,7 @@ func loadBinaryInfoElf(bi *BinaryInfo, image *Image, path string, addr uint64, w
 		return err
 	}
 	debugLocBytes, _ := godwarf.GetDebugSectionElf(dwarfFile, "loc")
-	image.loclistInit(debugLocBytes, bi.Arch.PtrSize())
+	image.loclist = loclist.New(debugLocBytes, bi.Arch.PtrSize())
 
 	wg.Add(2)
 	go bi.parseDebugFrameElf(image, dwarfFile, wg)
@@ -1095,7 +1037,7 @@ func loadBinaryInfoPE(bi *BinaryInfo, image *Image, path string, entryPoint uint
 		return err
 	}
 	debugLocBytes, _ := godwarf.GetDebugSectionPE(peFile, "loc")
-	image.loclistInit(debugLocBytes, bi.Arch.PtrSize())
+	image.loclist = loclist.New(debugLocBytes, bi.Arch.PtrSize())
 
 	wg.Add(2)
 	go bi.parseDebugFramePE(image, peFile, wg)
@@ -1180,7 +1122,7 @@ func loadBinaryInfoMacho(bi *BinaryInfo, image *Image, path string, entryPoint u
 		return err
 	}
 	debugLocBytes, _ := godwarf.GetDebugSectionMacho(exe, "loc")
-	image.loclistInit(debugLocBytes, bi.Arch.PtrSize())
+	image.loclist = loclist.New(debugLocBytes, bi.Arch.PtrSize())
 
 	wg.Add(2)
 	go bi.parseDebugFrameMacho(image, exe, wg)
@@ -1321,7 +1263,7 @@ func (bi *BinaryInfo) registerTypeToPackageMap(entry *dwarf.Entry) {
 		return
 	}
 	name := path[slash+1:]
-	bi.packageMap[name] = path
+	bi.PackageMap[name] = []string{path}
 }
 
 func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugLineBytes []byte, wg *sync.WaitGroup, cont func()) {
@@ -1335,8 +1277,8 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugLineBytes []byte, wg 
 	if bi.consts == nil {
 		bi.consts = make(map[dwarfRef]*constantType)
 	}
-	if bi.packageMap == nil {
-		bi.packageMap = make(map[string]string)
+	if bi.PackageMap == nil {
+		bi.PackageMap = make(map[string][]string)
 	}
 	if bi.inlinedCallLines == nil {
 		bi.inlinedCallLines = make(map[fileLine][]uint64)
@@ -1397,6 +1339,10 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugLineBytes []byte, wg 
 					cu.producer = cu.producer[:semicolon]
 				}
 			}
+			gopkg, _ := entry.Val(godwarf.AttrGoPackageName).(string)
+			if cu.isgo && gopkg != "" {
+				bi.PackageMap[gopkg] = append(bi.PackageMap[gopkg], escapePackagePath(strings.Replace(cu.name, "\\", "/", -1)))
+			}
 			bi.compileUnits = append(bi.compileUnits, cu)
 			if entry.Children {
 				bi.loadDebugInfoMapsCompileUnit(ctxt, image, reader, cu)
@@ -1438,6 +1384,8 @@ func (bi *BinaryInfo) loadDebugInfoMaps(image *Image, debugLineBytes []byte, wg 
 
 // loadDebugInfoMapsCompileUnit loads entry from a single compile unit.
 func (bi *BinaryInfo) loadDebugInfoMapsCompileUnit(ctxt *loadDebugInfoMapsContext, image *Image, reader *reader.Reader, cu *compileUnit) {
+	hasAttrGoPkgName := goversion.ProducerAfterOrEqual(cu.producer, 1, 13)
+
 	for entry, err := reader.Next(); entry != nil; entry, err = reader.Next() {
 		if err != nil {
 			image.setLoadError("error reading debug_info: %v", err)
@@ -1459,7 +1407,7 @@ func (bi *BinaryInfo) loadDebugInfoMapsCompileUnit(ctxt *loadDebugInfoMapsContex
 					bi.types[name] = dwarfRef{image.index, entry.Offset}
 				}
 			}
-			if cu != nil && cu.isgo {
+			if cu != nil && cu.isgo && !hasAttrGoPkgName {
 				bi.registerTypeToPackageMap(entry)
 			}
 			image.registerRuntimeTypeToDIE(entry, ctxt.ardr)
@@ -1542,7 +1490,7 @@ func (bi *BinaryInfo) loadDebugInfoMapsImportedUnit(entry *dwarf.Entry, ctxt *lo
 func (bi *BinaryInfo) addAbstractSubprogram(entry *dwarf.Entry, ctxt *loadDebugInfoMapsContext, reader *reader.Reader, image *Image, cu *compileUnit) {
 	name, ok := subprogramEntryName(entry, cu)
 	if !ok {
-		bi.logger.Errorf("Error reading debug_info: abstract subprogram without name at %#x", entry.Offset)
+		bi.logger.Warnf("reading debug_info: abstract subprogram without name at %#x", entry.Offset)
 		if entry.Children {
 			reader.SkipChildren()
 		}
@@ -1567,7 +1515,7 @@ func (bi *BinaryInfo) addAbstractSubprogram(entry *dwarf.Entry, ctxt *loadDebugI
 func (bi *BinaryInfo) addConcreteInlinedSubprogram(entry *dwarf.Entry, originOffset dwarf.Offset, ctxt *loadDebugInfoMapsContext, reader *reader.Reader, cu *compileUnit) {
 	lowpc, highpc, ok := subprogramEntryRange(entry, cu.image)
 	if !ok {
-		bi.logger.Errorf("Error reading debug_info: concrete inlined subprogram without address range at %#x", entry.Offset)
+		bi.logger.Warnf("reading debug_info: concrete inlined subprogram without address range at %#x", entry.Offset)
 		if entry.Children {
 			reader.SkipChildren()
 		}
@@ -1576,7 +1524,7 @@ func (bi *BinaryInfo) addConcreteInlinedSubprogram(entry *dwarf.Entry, originOff
 
 	originIdx, ok := ctxt.abstractOriginTable[originOffset]
 	if !ok {
-		bi.logger.Errorf("Error reading debug_info: could not find abstract origin of concrete inlined subprogram at %#x (origin offset %#x)", entry.Offset, originOffset)
+		bi.logger.Warnf("reading debug_info: could not find abstract origin of concrete inlined subprogram at %#x (origin offset %#x)", entry.Offset, originOffset)
 		if entry.Children {
 			reader.SkipChildren()
 		}
@@ -1598,7 +1546,7 @@ func (bi *BinaryInfo) addConcreteInlinedSubprogram(entry *dwarf.Entry, originOff
 func (bi *BinaryInfo) addConcreteSubprogram(entry *dwarf.Entry, ctxt *loadDebugInfoMapsContext, reader *reader.Reader, cu *compileUnit) {
 	lowpc, highpc, ok := subprogramEntryRange(entry, cu.image)
 	if !ok {
-		bi.logger.Errorf("Error reading debug_info: concrete subprogram without address range at %#x", entry.Offset)
+		bi.logger.Warnf("reading debug_info: concrete subprogram without address range at %#x", entry.Offset)
 		if entry.Children {
 			reader.SkipChildren()
 		}
@@ -1607,7 +1555,7 @@ func (bi *BinaryInfo) addConcreteSubprogram(entry *dwarf.Entry, ctxt *loadDebugI
 
 	name, ok := subprogramEntryName(entry, cu)
 	if !ok {
-		bi.logger.Errorf("Error reading debug_info: concrete subprogram without name at %#x", entry.Offset)
+		bi.logger.Warnf("reading debug_info: concrete subprogram without name at %#x", entry.Offset)
 		if entry.Children {
 			reader.SkipChildren()
 		}
@@ -1662,14 +1610,14 @@ func (bi *BinaryInfo) loadDebugInfoMapsInlinedCalls(ctxt *loadDebugInfoMapsConte
 		case dwarf.TagInlinedSubroutine:
 			originOffset, ok := entry.Val(dwarf.AttrAbstractOrigin).(dwarf.Offset)
 			if !ok {
-				bi.logger.Errorf("Error reading debug_info: inlined call without origin offset at %#x", entry.Offset)
+				bi.logger.Warnf("reading debug_info: inlined call without origin offset at %#x", entry.Offset)
 				reader.SkipChildren()
 				continue
 			}
 
 			originIdx, ok := ctxt.abstractOriginTable[originOffset]
 			if !ok {
-				bi.logger.Errorf("Error reading debug_info: could not find abstract origin (%#x) of inlined call at %#x", originOffset, entry.Offset)
+				bi.logger.Warnf("reading debug_info: could not find abstract origin (%#x) of inlined call at %#x", originOffset, entry.Offset)
 				reader.SkipChildren()
 				continue
 			}
@@ -1677,7 +1625,7 @@ func (bi *BinaryInfo) loadDebugInfoMapsInlinedCalls(ctxt *loadDebugInfoMapsConte
 
 			lowpc, highpc, ok := subprogramEntryRange(entry, cu.image)
 			if !ok {
-				bi.logger.Errorf("Error reading debug_info: inlined call without address range at %#x", entry.Offset)
+				bi.logger.Warnf("reading debug_info: inlined call without address range at %#x", entry.Offset)
 				reader.SkipChildren()
 				continue
 			}
@@ -1685,17 +1633,17 @@ func (bi *BinaryInfo) loadDebugInfoMapsInlinedCalls(ctxt *loadDebugInfoMapsConte
 			callfileidx, ok1 := entry.Val(dwarf.AttrCallFile).(int64)
 			callline, ok2 := entry.Val(dwarf.AttrCallLine).(int64)
 			if !ok1 || !ok2 {
-				bi.logger.Errorf("Error reading debug_info: inlined call without CallFile/CallLine at %#x", entry.Offset)
+				bi.logger.Warnf("reading debug_info: inlined call without CallFile/CallLine at %#x", entry.Offset)
 				reader.SkipChildren()
 				continue
 			}
 			if cu.lineInfo == nil {
-				bi.logger.Errorf("Error reading debug_info: inlined call on a compilation unit without debug_line section at %#x", entry.Offset)
+				bi.logger.Warnf("reading debug_info: inlined call on a compilation unit without debug_line section at %#x", entry.Offset)
 				reader.SkipChildren()
 				continue
 			}
 			if int(callfileidx-1) >= len(cu.lineInfo.FileNames) {
-				bi.logger.Errorf("Error reading debug_info: CallFile (%d) of inlined call does not exist in compile unit file table at %#x", callfileidx, entry.Offset)
+				bi.logger.Warnf("reading debug_info: CallFile (%d) of inlined call does not exist in compile unit file table at %#x", callfileidx, entry.Offset)
 				reader.SkipChildren()
 				continue
 			}
@@ -1752,8 +1700,13 @@ func (bi *BinaryInfo) expandPackagesInType(expr ast.Expr) {
 	case *ast.SelectorExpr:
 		switch x := e.X.(type) {
 		case *ast.Ident:
-			if path, ok := bi.packageMap[x.Name]; ok {
-				x.Name = path
+			if len(bi.PackageMap[x.Name]) > 0 {
+				// There's no particular reason to expect the first entry to be the
+				// correct one if the package name is ambiguous, but trying all possible
+				// expansions of all types mentioned in the expression is complicated
+				// and, besides type assertions, users can always specify the type they
+				// want exactly, using a string.
+				x.Name = bi.PackageMap[x.Name][0]
 			}
 		default:
 			bi.expandPackagesInType(e.X)
@@ -1763,6 +1716,17 @@ func (bi *BinaryInfo) expandPackagesInType(expr ast.Expr) {
 	default:
 		// nothing to do
 	}
+}
+
+// escapePackagePath returns pkg with '.' replaced with '%2e' (in all
+// elements of the path except the first one) like Go does in variable and
+// type names.
+func escapePackagePath(pkg string) string {
+	slash := strings.Index(pkg, "/")
+	if slash < 0 {
+		slash = 0
+	}
+	return pkg[:slash] + strings.Replace(pkg[slash:], ".", "%2e", -1)
 }
 
 // Looks up symbol (either functions or global variables) at address addr.

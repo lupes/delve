@@ -1,3 +1,7 @@
+// TODO: disassembler support should be compiled in unconditionally,
+// instead of being decided by the build-target architecture, and be
+// part of the Arch object instead.
+
 package proc
 
 import (
@@ -73,7 +77,7 @@ func (inst *AsmInstruction) IsRet() bool {
 	return inst.Inst.Op == x86asm.RET || inst.Inst.Op == x86asm.LRET
 }
 
-func resolveCallArg(inst *archInst, currentGoroutine bool, regs Registers, mem MemoryReadWriter, bininfo *BinaryInfo) *Location {
+func resolveCallArg(inst *archInst, instAddr uint64, currentGoroutine bool, regs Registers, mem MemoryReadWriter, bininfo *BinaryInfo) *Location {
 	if inst.Op != x86asm.CALL && inst.Op != x86asm.LCALL {
 		return nil
 	}
@@ -148,50 +152,4 @@ func init() {
 			prologues = append(prologues, prologue)
 		}
 	}
-}
-
-// firstPCAfterPrologueDisassembly returns the address of the first
-// instruction after the prologue for function fn by disassembling fn and
-// matching the instructions against known split-stack prologue patterns.
-// If sameline is set firstPCAfterPrologueDisassembly will always return an
-// address associated with the same line as fn.Entry
-func firstPCAfterPrologueDisassembly(p Process, fn *Function, sameline bool) (uint64, error) {
-	var mem MemoryReadWriter = p.CurrentThread()
-	breakpoints := p.Breakpoints()
-	bi := p.BinInfo()
-	text, err := disassemble(mem, nil, breakpoints, bi, fn.Entry, fn.End, false)
-	if err != nil {
-		return fn.Entry, err
-	}
-
-	if len(text) <= 0 {
-		return fn.Entry, nil
-	}
-
-	for _, prologue := range prologues {
-		if len(prologue) >= len(text) {
-			continue
-		}
-		if checkPrologue(text, prologue) {
-			r := &text[len(prologue)]
-			if sameline {
-				if r.Loc.Line != text[0].Loc.Line {
-					return fn.Entry, nil
-				}
-			}
-			return r.Loc.PC, nil
-		}
-	}
-
-	return fn.Entry, nil
-}
-
-func checkPrologue(s []AsmInstruction, prologuePattern instrseq) bool {
-	line := s[0].Loc.Line
-	for i, op := range prologuePattern {
-		if s[i].Inst.Op != op || s[i].Loc.Line != line {
-			return false
-		}
-	}
-	return true
 }

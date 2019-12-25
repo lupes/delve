@@ -266,6 +266,9 @@ func TestIssue354(t *testing.T) {
 }
 
 func TestIssue411(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("test is not valid on ARM64")
+	}
 	test.AllowRecording(t)
 	withTestTerminal("math", t, func(term *FakeTerminal) {
 		term.MustExec("break math.go:8")
@@ -278,7 +281,23 @@ func TestIssue411(t *testing.T) {
 	})
 }
 
+func TestExitStatus(t *testing.T) {
+	withTestTerminal("continuetestprog", t, func(term *FakeTerminal) {
+		term.Exec("continue")
+		status, err := term.handleExit()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status != 0 {
+			t.Fatalf("incorrect exit status, expected 0, got %d", status)
+		}
+	})
+}
+
 func TestScopePrefix(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("arm64 does not support Stacktrace for now")
+	}
 	const goroutinesLinePrefix = "  Goroutine "
 	const goroutinesCurLinePrefix = "* Goroutine "
 	test.AllowRecording(t)
@@ -420,6 +439,9 @@ func TestScopePrefix(t *testing.T) {
 }
 
 func TestOnPrefix(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("test is not valid on ARM64")
+	}
 	if runtime.GOOS == "freebsd" {
 		t.Skip("test is not valid on FreeBSD")
 	}
@@ -476,6 +498,9 @@ func TestNoVars(t *testing.T) {
 }
 
 func TestOnPrefixLocals(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("test is not valid on ARM64")
+	}
 	if runtime.GOOS == "freebsd" {
 		t.Skip("test is not valid on FreeBSD")
 	}
@@ -534,6 +559,9 @@ func countOccurrences(s string, needle string) int {
 }
 
 func TestIssue387(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("test is not valid on ARM64")
+	}
 	if runtime.GOOS == "freebsd" {
 		t.Skip("test is not valid on FreeBSD")
 	}
@@ -831,6 +859,9 @@ func TestIssue1090(t *testing.T) {
 }
 
 func TestPrintContextParkedGoroutine(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("arm64 does not support Stacktrace for now")
+	}
 	withTestTerminal("goroutinestackprog", t, func(term *FakeTerminal) {
 		term.MustExec("break stacktraceme")
 		term.MustExec("continue")
@@ -904,6 +935,9 @@ func TestOptimizationCheck(t *testing.T) {
 }
 
 func TestTruncateStacktrace(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("arm64 does not support Stacktrace for now")
+	}
 	withTestTerminal("stacktraceprog", t, func(term *FakeTerminal) {
 		term.MustExec("break main.stacktraceme")
 		term.MustExec("continue")
@@ -921,6 +955,9 @@ func TestTruncateStacktrace(t *testing.T) {
 }
 
 func TestIssue1493(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("arm64 does not support FpRegs for now")
+	}
 	// The 'regs' command without the '-a' option should only return
 	// general purpose registers.
 	withTestTerminal("continuetestprog", t, func(term *FakeTerminal) {
@@ -941,6 +978,9 @@ func findStarFile(name string) string {
 }
 
 func TestIssue1598(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("arm64 does not support FunctionCall for now")
+	}
 	test.MustSupportFunctionCalls(t, testBackend)
 	withTestTerminal("issue1598", t, func(term *FakeTerminal) {
 		term.MustExec("break issue1598.go:5")
