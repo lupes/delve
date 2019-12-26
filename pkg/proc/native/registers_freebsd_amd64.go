@@ -5,8 +5,8 @@ import (
 
 	sys "golang.org/x/sys/unix"
 
-	"github.com/go-delve/delve/pkg/proc"
-	"github.com/go-delve/delve/pkg/proc/fbsdutil"
+	"github.com/lupes/delve/pkg/proc"
+	"github.com/lupes/delve/pkg/proc/fbsdutil"
 )
 
 // SetPC sets RIP to the value specified by 'pc'.

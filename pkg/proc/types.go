@@ -10,8 +10,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/go-delve/delve/pkg/dwarf/godwarf"
-	"github.com/go-delve/delve/pkg/dwarf/reader"
+	"github.com/lupes/delve/pkg/dwarf/godwarf"
+	"github.com/lupes/delve/pkg/dwarf/reader"
 )
 
 // The kind field in runtime._type is a reflect.Kind value plus

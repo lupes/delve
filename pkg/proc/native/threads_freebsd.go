@@ -4,13 +4,13 @@ package native
 import "C"
 import (
 	"fmt"
-	"github.com/go-delve/delve/pkg/proc/fbsdutil"
+	"github.com/lupes/delve/pkg/proc/fbsdutil"
 	"syscall"
 	"unsafe"
 
 	sys "golang.org/x/sys/unix"
 
-	"github.com/go-delve/delve/pkg/proc"
+	"github.com/lupes/delve/pkg/proc"
 )
 
 type WaitStatus sys.WaitStatus

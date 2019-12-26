@@ -3,9 +3,10 @@ package proc
 import (
 	"encoding/binary"
 
-	"github.com/go-delve/delve/pkg/dwarf/frame"
-	"github.com/go-delve/delve/pkg/dwarf/op"
 	"golang.org/x/arch/arm64/arm64asm"
+
+	"github.com/lupes/delve/pkg/dwarf/frame"
+	"github.com/lupes/delve/pkg/dwarf/op"
 )
 
 // ARM64 represents the ARM64 CPU architecture.

@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/go-delve/delve/pkg/dwarf/godwarf"
-	"github.com/go-delve/delve/pkg/proc"
+	"github.com/lupes/delve/pkg/dwarf/godwarf"
+	"github.com/lupes/delve/pkg/proc"
 )
 
 // ConvertBreakpoint converts from a proc.Breakpoint to

@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-delve/delve/pkg/goversion"
-	"github.com/go-delve/delve/pkg/logflags"
-	"github.com/go-delve/delve/pkg/proc"
-	"github.com/go-delve/delve/pkg/proc/core"
-	"github.com/go-delve/delve/pkg/proc/gdbserial"
-	"github.com/go-delve/delve/pkg/proc/native"
-	"github.com/go-delve/delve/service/api"
+	"github.com/lupes/delve/pkg/goversion"
+	"github.com/lupes/delve/pkg/logflags"
+	"github.com/lupes/delve/pkg/proc"
+	"github.com/lupes/delve/pkg/proc/core"
+	"github.com/lupes/delve/pkg/proc/gdbserial"
+	"github.com/lupes/delve/pkg/proc/native"
+	"github.com/lupes/delve/service/api"
 	"github.com/sirupsen/logrus"
 )
 

@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	protest "github.com/go-delve/delve/pkg/proc/test"
 	"github.com/go-delve/delve/pkg/terminal"
 	"github.com/go-delve/delve/service/rpc2"
+	protest "github.com/lupes/delve/pkg/proc/test"
 
 	"golang.org/x/tools/go/packages"
 )

@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-delve/delve/pkg/config"
-	"github.com/go-delve/delve/pkg/goversion"
-	"github.com/go-delve/delve/pkg/logflags"
-	"github.com/go-delve/delve/pkg/proc/test"
-	"github.com/go-delve/delve/service"
-	"github.com/go-delve/delve/service/api"
-	"github.com/go-delve/delve/service/rpc2"
-	"github.com/go-delve/delve/service/rpccommon"
+	"github.com/lupes/delve/pkg/config"
+	"github.com/lupes/delve/pkg/goversion"
+	"github.com/lupes/delve/pkg/logflags"
+	"github.com/lupes/delve/pkg/proc/test"
+	"github.com/lupes/delve/service"
+	"github.com/lupes/delve/service/api"
+	"github.com/lupes/delve/service/rpc2"
+	"github.com/lupes/delve/service/rpccommon"
 )
 
 var testBackend, buildMode string

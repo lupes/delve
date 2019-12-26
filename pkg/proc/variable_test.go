@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/go-delve/delve/pkg/proc"
-	protest "github.com/go-delve/delve/pkg/proc/test"
+	"github.com/lupes/delve/pkg/proc"
+	protest "github.com/lupes/delve/pkg/proc/test"
 )
 
 func TestGoroutineCreationLocation(t *testing.T) {

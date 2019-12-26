@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-delve/delve/service/api"
+	"github.com/lupes/delve/service/api"
 )
 
 func assertNoError(err error, t *testing.T, s string) {

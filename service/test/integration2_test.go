@@ -16,14 +16,14 @@ import (
 	"testing"
 	"time"
 
-	protest "github.com/go-delve/delve/pkg/proc/test"
+	protest "github.com/lupes/delve/pkg/proc/test"
 
-	"github.com/go-delve/delve/pkg/goversion"
-	"github.com/go-delve/delve/pkg/logflags"
-	"github.com/go-delve/delve/service"
-	"github.com/go-delve/delve/service/api"
-	"github.com/go-delve/delve/service/rpc2"
-	"github.com/go-delve/delve/service/rpccommon"
+	"github.com/lupes/delve/pkg/goversion"
+	"github.com/lupes/delve/pkg/logflags"
+	"github.com/lupes/delve/service"
+	"github.com/lupes/delve/service/api"
+	"github.com/lupes/delve/service/rpc2"
+	"github.com/lupes/delve/service/rpccommon"
 )
 
 var normalLoadConfig = api.LoadConfig{true, 1, 64, 64, -1}
@@ -728,7 +728,7 @@ func TestClientServer_FindLocations(t *testing.T) {
 
 	if goversion.VersionAfterOrEqual(runtime.Version(), 1, 13) {
 		withTestClient2("pkgrenames", t, func(c service.Client) {
-			someFuncLoc := findLocationHelper(t, c, "github.com/go-delve/delve/_fixtures/internal/dir%2eio.SomeFunction:0", false, 1, 0)[0]
+			someFuncLoc := findLocationHelper(t, c, "github.com/lupes/delve/_fixtures/internal/dir%2eio.SomeFunction:0", false, 1, 0)[0]
 			findLocationHelper(t, c, "dirio.SomeFunction:0", false, 1, someFuncLoc)
 		})
 	}

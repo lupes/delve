@@ -15,13 +15,13 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/go-delve/delve/pkg/logflags"
-	"github.com/go-delve/delve/pkg/version"
-	"github.com/go-delve/delve/service"
-	"github.com/go-delve/delve/service/api"
-	"github.com/go-delve/delve/service/debugger"
-	"github.com/go-delve/delve/service/rpc1"
-	"github.com/go-delve/delve/service/rpc2"
+	"github.com/lupes/delve/pkg/logflags"
+	"github.com/lupes/delve/pkg/version"
+	"github.com/lupes/delve/service"
+	"github.com/lupes/delve/service/api"
+	"github.com/lupes/delve/service/debugger"
+	"github.com/lupes/delve/service/rpc1"
+	"github.com/lupes/delve/service/rpc2"
 	"github.com/sirupsen/logrus"
 )
 

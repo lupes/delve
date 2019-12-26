@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"path/filepath"
 
-	"github.com/go-delve/delve/pkg/dwarf/util"
+	"github.com/lupes/delve/pkg/dwarf/util"
 )
 
 type DebugLinePrologue struct {
@@ -34,7 +34,7 @@ type DebugLineInfo struct {
 
 	// lastMachineCache[pc] is a state machine stopped at an address after pc
 	lastMachineCache map[uint64]*StateMachine
-	
+
 	// staticBase is the address at which the executable is loaded, 0 for non-PIEs
 	staticBase uint64
 }

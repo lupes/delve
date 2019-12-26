@@ -13,12 +13,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-delve/delve/pkg/dwarf/godwarf"
-	"github.com/go-delve/delve/pkg/dwarf/op"
-	"github.com/go-delve/delve/pkg/dwarf/reader"
-	"github.com/go-delve/delve/pkg/goversion"
-	"github.com/go-delve/delve/pkg/logflags"
 	"golang.org/x/arch/x86/x86asm"
+
+	"github.com/lupes/delve/pkg/dwarf/godwarf"
+	"github.com/lupes/delve/pkg/dwarf/op"
+	"github.com/lupes/delve/pkg/dwarf/reader"
+	"github.com/lupes/delve/pkg/goversion"
+	"github.com/lupes/delve/pkg/logflags"
 )
 
 // This file implements the function call injection introduced in go1.11.

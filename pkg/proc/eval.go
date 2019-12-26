@@ -17,10 +17,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-delve/delve/pkg/dwarf/godwarf"
-	"github.com/go-delve/delve/pkg/dwarf/op"
-	"github.com/go-delve/delve/pkg/dwarf/reader"
-	"github.com/go-delve/delve/pkg/goversion"
+	"github.com/lupes/delve/pkg/dwarf/godwarf"
+	"github.com/lupes/delve/pkg/dwarf/op"
+	"github.com/lupes/delve/pkg/dwarf/reader"
+	"github.com/lupes/delve/pkg/goversion"
 )
 
 var errOperationOnSpecialFloat = errors.New("operations on non-finite floats not implemented")

@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-delve/delve/pkg/logflags"
-	"github.com/go-delve/delve/pkg/proc"
+	"github.com/lupes/delve/pkg/logflags"
+	"github.com/lupes/delve/pkg/proc"
 	"github.com/sirupsen/logrus"
 )
 

@@ -1,8 +1,8 @@
 package proc
 
 import (
-	"github.com/go-delve/delve/pkg/dwarf/frame"
-	"github.com/go-delve/delve/pkg/dwarf/op"
+	"github.com/lupes/delve/pkg/dwarf/frame"
+	"github.com/lupes/delve/pkg/dwarf/op"
 )
 
 // Arch defines an interface for representing a

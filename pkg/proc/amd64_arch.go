@@ -3,9 +3,10 @@ package proc
 import (
 	"encoding/binary"
 
-	"github.com/go-delve/delve/pkg/dwarf/frame"
-	"github.com/go-delve/delve/pkg/dwarf/op"
 	"golang.org/x/arch/x86/x86asm"
+
+	"github.com/lupes/delve/pkg/dwarf/frame"
+	"github.com/lupes/delve/pkg/dwarf/op"
 )
 
 // AMD64 represents the AMD64 CPU architecture.

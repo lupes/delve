@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/go-delve/delve/pkg/dwarf/util"
+	"github.com/lupes/delve/pkg/dwarf/util"
 )
 
 type parsefunc func(*parseContext) parsefunc

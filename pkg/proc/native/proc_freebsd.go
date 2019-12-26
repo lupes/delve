@@ -15,7 +15,7 @@ import (
 
 	sys "golang.org/x/sys/unix"
 
-	"github.com/go-delve/delve/pkg/proc"
+	"github.com/lupes/delve/pkg/proc"
 
 	isatty "github.com/mattn/go-isatty"
 )

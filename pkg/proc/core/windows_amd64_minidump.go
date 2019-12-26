@@ -1,10 +1,10 @@
 package core
 
 import (
-	"github.com/go-delve/delve/pkg/logflags"
-	"github.com/go-delve/delve/pkg/proc"
-	"github.com/go-delve/delve/pkg/proc/core/minidump"
-	"github.com/go-delve/delve/pkg/proc/winutil"
+	"github.com/lupes/delve/pkg/logflags"
+	"github.com/lupes/delve/pkg/proc"
+	"github.com/lupes/delve/pkg/proc/core/minidump"
+	"github.com/lupes/delve/pkg/proc/winutil"
 )
 
 func readAMD64Minidump(minidumpPath, exePath string) (*Process, error) {
